@@ -1,0 +1,650 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>손짓 메시지 게임</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Jua&family=IBM+Plex+Sans+KR:wght@400;500;700&display=swap">
+<style>
+/* Layout: sticky step rail on top, one step per screen; big timer card leads each step. Tablet-first, 2 columns ≥ 820px. */
+:root{
+  --bg:#EEF3F8; --card:#FFFFFF; --ink:#1A2238; --muted:#5B6884; --line:#D5DEEA;
+  --accent:#F2652E; --accent-ink:#FFFFFF; --teal:#13867A; --teal-soft:#DDF2EE;
+  --sun:#FFC93C; --sun-soft:#FFF3CF; --danger:#C93A3A; --danger-soft:#FBE3E3;
+  --chip:#E4EBF4; --shadow:0 2px 0 rgba(26,34,56,.08);
+  --f-display:"Jua","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --f-body:"IBM Plex Sans KR","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;
+  --r:16px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#111727; --card:#1B2337; --ink:#EEF2FA; --muted:#A3AEC6; --line:#2E3953;
+  --accent:#FF7E4A; --accent-ink:#1A1206; --teal:#43C2B1; --teal-soft:#16362F;
+  --sun:#FFD25E; --sun-soft:#3A3115; --danger:#FF7B7B; --danger-soft:#3D1D22;
+  --chip:#26304A; --shadow:0 2px 0 rgba(0,0,0,.3); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111727; --card:#1B2337; --ink:#EEF2FA; --muted:#A3AEC6; --line:#2E3953;
+  --accent:#FF7E4A; --accent-ink:#1A1206; --teal:#43C2B1; --teal-soft:#16362F;
+  --sun:#FFD25E; --sun-soft:#3A3115; --danger:#FF7B7B; --danger-soft:#3D1D22;
+  --chip:#26304A; --shadow:0 2px 0 rgba(0,0,0,.3); color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:17px;line-height:1.55;-webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--card)}
+h1,h2,h3{font-family:var(--f-display);font-weight:400;margin:0;text-wrap:balance;line-height:1.25}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer;touch-action:manipulation}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+/* ---------- top rail ---------- */
+.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--card);border-bottom:1px solid var(--line)}
+.rail-in{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:10px;max-width:1100px;margin:0 auto;display:flex;align-items:center;gap:12px}
+.brand{font-family:var(--f-display);font-size:22px;white-space:nowrap;display:flex;align-items:center;gap:8px}
+.brand .hand{display:inline-grid;place-items:center;width:36px;height:36px;border-radius:12px;background:var(--sun);font-size:20px}
+.steps{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;flex:1;min-width:0}
+.steps::-webkit-scrollbar{display:none}
+.stp{flex:0 0 auto;display:flex;align-items:center;gap:8px;min-height:48px;padding:6px 14px 6px 8px;border-radius:999px;border:1px solid var(--line);background:var(--bg);font-weight:500;font-size:15px}
+.stp .n{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:var(--chip);font-family:var(--f-display);font-size:16px}
+.stp .m{color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
+.stp[aria-current="step"]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.stp[aria-current="step"] .n{background:var(--sun);color:#1A2238}
+.stp[aria-current="step"] .m{color:inherit;opacity:.75}
+.stp.done .n{background:var(--teal);color:#fff}
+
+/* ---------- main ---------- */
+main{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:18px 60px;max-width:1100px;margin:0 auto}
+.head{display:grid;grid-template-columns:1fr auto;gap:16px;align-items:stretch;margin-bottom:18px}
+.head-txt{display:flex;flex-direction:column;justify-content:center;gap:6px;min-width:0}
+.eyebrow{font-size:13px;letter-spacing:.08em;color:var(--muted);font-weight:700}
+.head h2{font-size:clamp(28px,4.4vw,40px)}
+.head p{margin:0;color:var(--muted);max-width:60ch}
+
+.timer{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:12px 14px;display:flex;align-items:center;gap:12px;box-shadow:var(--shadow);min-width:260px}
+.ring{position:relative;width:84px;height:84px;flex:0 0 84px}
+.ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ring .bgc{fill:none;stroke:var(--chip);stroke-width:9}
+.ring .fg{fill:none;stroke:var(--teal);stroke-width:9;stroke-linecap:round;transition:stroke-dashoffset .4s linear}
+.ring.warn .fg{stroke:var(--sun)}
+.ring.over .fg{stroke:var(--danger)}
+.ring .t{position:absolute;inset:0;display:grid;place-items:center;font-family:var(--f-display);font-size:22px;font-variant-numeric:tabular-nums}
+.tbtns{display:flex;flex-direction:column;gap:6px}
+.timer.over{animation:pulse 1.2s ease-in-out infinite;border-color:var(--danger)}
+@keyframes pulse{50%{box-shadow:0 0 0 6px var(--danger-soft)}}
+
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+.col{display:flex;flex-direction:column;gap:16px;min-width:0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px;box-shadow:var(--shadow);min-width:0}
+.card h3{font-size:22px;margin-bottom:10px}
+.card.sun{background:var(--sun-soft);border-color:transparent}
+.card.teal{background:var(--teal-soft);border-color:transparent}
+.muted{color:var(--muted)}
+.small{font-size:14px}
+
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:52px;padding:10px 20px;border-radius:14px;border:1px solid var(--line);background:var(--card);font-weight:700;font-size:17px;text-decoration:none;color:var(--ink)}
+.btn:active{transform:translateY(1px)}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.ink{background:var(--ink);border-color:var(--ink);color:var(--bg)}
+.btn.teal{background:var(--teal);border-color:var(--teal);color:#fff}
+.btn.ghost{background:transparent}
+.btn.sm{min-height:44px;padding:6px 14px;font-size:15px;border-radius:12px}
+.btn.xl{min-height:72px;font-size:22px;font-family:var(--f-display);font-weight:400;border-radius:18px;padding:12px 28px}
+.btn.block{width:100%}
+.btn[disabled]{opacity:.45;pointer-events:none}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.next{display:flex;justify-content:flex-end;margin-top:20px}
+
+input[type=text],textarea{width:100%;min-height:52px;padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:var(--bg);font-size:18px}
+textarea{min-height:96px;resize:vertical}
+label.lb{display:block;font-weight:700;margin-bottom:6px}
+
+/* members */
+.members{display:flex;flex-wrap:wrap;gap:8px}
+.mem{display:flex;align-items:center;gap:4px;padding:4px 4px 4px 14px;min-height:48px;border-radius:999px;background:var(--chip);font-weight:500}
+.mem button{width:40px;height:40px;border-radius:50%;border:0;background:transparent;font-size:18px;color:var(--muted)}
+.roles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.role{padding:10px 12px;border-radius:12px;background:var(--bg);border:1px dashed var(--line)}
+.role b{display:block}
+.role select{width:100%;min-height:44px;margin-top:6px;border-radius:10px;border:1px solid var(--line);background:var(--card);padding:6px 8px}
+
+/* dictionary */
+.dict{display:flex;flex-direction:column;gap:10px}
+.drow{display:grid;grid-template-columns:64px minmax(0,1fr) minmax(0,1.2fr) 44px;gap:8px;align-items:center;padding:8px;border-radius:14px;background:var(--bg)}
+.emo{width:64px;height:56px;border-radius:12px;border:1px solid var(--line);background:var(--card);font-size:30px}
+.drow input{min-height:48px;font-size:16px}
+.drow .x{width:44px;height:44px;border:0;border-radius:12px;background:transparent;color:var(--muted);font-size:20px}
+.drow.bgclass{opacity:.8}
+.emopick{display:flex;flex-wrap:wrap;gap:6px;padding:8px;border-radius:12px;background:var(--card);border:1px solid var(--line);grid-column:1/-1}
+.emopick button{width:52px;height:52px;border-radius:12px;border:1px solid var(--line);background:var(--bg);font-size:26px}
+.presets{display:flex;flex-wrap:wrap;gap:8px}
+.preset{border:1px solid var(--line);background:var(--card);border-radius:999px;min-height:44px;padding:6px 14px;font-size:15px}
+
+/* checklist */
+.todo{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.todo li{display:grid;grid-template-columns:44px 1fr;gap:10px;align-items:start;padding:10px;border-radius:14px;background:var(--bg);cursor:pointer}
+.todo .box{width:44px;height:44px;border-radius:12px;border:2px solid var(--line);display:grid;place-items:center;background:var(--card);font-size:22px;color:transparent}
+.todo li.ok .box{background:var(--teal);border-color:var(--teal);color:#fff}
+.todo li.ok .tx b{text-decoration:line-through;text-decoration-color:var(--muted)}
+.todo .tx b{display:block}
+.todo .tx span{font-size:15px;color:var(--muted)}
+.namechips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.namechips code{font-family:var(--f-body);font-weight:700;background:var(--sun);color:#1A2238;padding:2px 10px;border-radius:8px}
+.progress{height:10px;border-radius:99px;background:var(--chip);overflow:hidden}
+.progress i{display:block;height:100%;background:var(--teal);transition:width .3s}
+
+/* model */
+.drop{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;border:2px dashed var(--line);border-radius:18px;padding:22px;background:var(--bg);min-height:150px}
+.drop.on{border-color:var(--teal);background:var(--teal-soft)}
+.status{display:flex;gap:10px;align-items:flex-start;padding:12px 14px;border-radius:12px;background:var(--bg);font-size:15px}
+.status.ok{background:var(--teal-soft)}
+.status.err{background:var(--danger-soft)}
+.status.warn{background:var(--sun-soft)}
+.bars{display:flex;flex-direction:column;gap:8px}
+.bar{display:grid;grid-template-columns:minmax(0,9em) 1fr 3.4em;gap:10px;align-items:center;font-size:15px}
+.bar .lbl{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar .tr{height:22px;border-radius:8px;background:var(--chip);overflow:hidden}
+.bar .tr i{display:block;height:100%;background:var(--muted);border-radius:8px}
+.bar.top .tr i{background:var(--teal)}
+.bar .v{text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
+.shot{width:100%;max-width:100%;aspect-ratio:1;object-fit:cover;border-radius:14px;background:var(--chip)}
+.toggle{display:flex;align-items:center;gap:10px;min-height:44px}
+.toggle input{width:26px;height:26px}
+.hidden-file{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+
+/* game */
+.stage{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:20px;box-shadow:var(--shadow)}
+.phase{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+.phase span{font-size:13px;font-weight:700;padding:4px 10px;border-radius:99px;background:var(--chip);color:var(--muted)}
+.phase span.on{background:var(--accent);color:var(--accent-ink)}
+.who{display:flex;flex-wrap:wrap;gap:8px}
+.who button{min-height:56px;padding:8px 20px;border-radius:16px;border:2px solid var(--line);background:var(--bg);font-weight:700;font-size:18px}
+.who button[aria-pressed="true"]{border-color:var(--accent);background:var(--accent);color:var(--accent-ink)}
+.seq{display:flex;flex-wrap:wrap;gap:12px;align-items:stretch;min-height:120px}
+.tile{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;width:132px;min-height:150px;padding:10px;border-radius:18px;background:var(--sun-soft);border:2px solid var(--sun);text-align:center}
+.tile .e{font-size:52px;line-height:1.1}
+.tile .g{font-size:13px;color:var(--muted)}
+.tile .w{font-family:var(--f-display);font-size:22px;line-height:1.2;word-break:keep-all}
+.tile .c{font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.tile .del{position:absolute;top:4px;right:4px;width:36px;height:36px;border-radius:50%;border:0;background:var(--card);color:var(--muted);font-size:16px}
+.tile.add{background:var(--bg);border:2px dashed var(--line);color:var(--muted);font-weight:700}
+.tile.big{width:min(170px,42vw);min-height:190px}
+.tile.big .e{font-size:72px}
+.tile.big .w{font-size:28px}
+.arrow{align-self:center;font-family:var(--f-display);font-size:28px;color:var(--muted)}
+.pick{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px}
+.pick button{min-height:84px;border-radius:16px;border:1px solid var(--line);background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.pick .e{font-size:34px}
+.pick .w{font-weight:700;font-size:15px}
+.secret{font-family:var(--f-display);font-size:clamp(26px,5vw,40px);padding:18px;border-radius:16px;background:var(--teal-soft);text-align:center;word-break:keep-all}
+.cover{display:grid;place-items:center;gap:8px;text-align:center;padding:26px;border-radius:16px;background:repeating-linear-gradient(45deg,var(--chip) 0 12px,var(--bg) 12px 24px);font-weight:700}
+.verdict{padding:12px 14px;border-radius:14px;background:var(--bg);display:flex;flex-direction:column;gap:10px}
+.score{display:flex;flex-direction:column;gap:8px}
+.srow{display:grid;grid-template-columns:2.2em 1fr auto;gap:10px;align-items:center;padding:10px 14px;border-radius:14px;background:var(--bg);font-weight:700}
+.srow .rk{font-family:var(--f-display);font-size:22px;color:var(--muted)}
+.srow .pt{font-family:var(--f-display);font-size:24px;font-variant-numeric:tabular-nums}
+.srow.first{background:var(--sun-soft)}
+.log{display:flex;flex-direction:column;gap:8px;max-height:340px;overflow:auto}
+.lrow{padding:10px 12px;border-radius:12px;background:var(--bg);font-size:15px}
+.lrow .s{font-size:22px}
+.stat{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.stat div{padding:12px;border-radius:14px;background:var(--bg);text-align:center}
+.stat b{display:block;font-family:var(--f-display);font-size:30px;font-weight:400;font-variant-numeric:tabular-nums}
+.stat span{font-size:13px;color:var(--muted)}
+.qs{margin:0;padding-left:1.3em;display:flex;flex-direction:column;gap:10px}
+.mini{font-family:var(--f-display);font-size:44px;font-variant-numeric:tabular-nums;text-align:center}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:12px 20px;border-radius:14px;font-weight:700;z-index:20;max-width:calc(100% - 32px);text-align:center}
+.confirm{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px;border-radius:12px;background:var(--danger-soft)}
+.spin{width:22px;height:22px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--teal);animation:sp 0.8s linear infinite;flex:0 0 22px}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+.camov{position:fixed;inset:0;z-index:30;background:#0B0F1A;color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:calc(16px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) calc(16px + env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
+.camov[hidden]{display:none}
+.camwrap{position:relative;width:min(88vw,62vh,560px);aspect-ratio:1;max-width:100%;border-radius:22px;overflow:hidden;background:#000}
+.camwrap video{width:100%;height:100%;object-fit:cover;transform:scaleX(-1)}
+.camframe{position:absolute;inset:0;border:4px solid rgba(255,201,60,.9);border-radius:22px;pointer-events:none}
+.camlive{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);background:rgba(11,15,26,.75);color:#fff;padding:6px 14px;border-radius:999px;font-family:var(--f-display);font-size:22px;white-space:nowrap}
+.cambtns{display:flex;align-items:center;justify-content:space-between;width:min(88vw,560px)}
+.cambtns .btn{background:transparent;color:#fff;border-color:rgba(255,255,255,.4);width:72px}
+.shutter{width:84px;height:84px;border-radius:50%;border:6px solid #fff;background:#F2652E}
+.shutter:active{transform:scale(.94)}
+.camtip{margin:0;color:#C9D2E3;font-size:15px;text-align:center}
+@media (max-width:820px){
+  .grid{grid-template-columns:1fr}
+  .head{grid-template-columns:1fr}
+  .timer{min-width:0}
+  .brand span.txt{display:none}
+}
+@media (max-width:480px){
+  .drow{grid-template-columns:56px minmax(0,1fr) 40px}
+  .drow .mean{grid-column:2/3}
+  .emo{width:56px}
+  .tile{width:calc(50% - 30px)}
+  .roles{grid-template-columns:1fr}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.target{display:flex;flex-direction:column;gap:8px}
+.cover-chips{display:flex;flex-wrap:wrap;gap:6px}
+.cchip{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:999px;font-size:14px;font-weight:700;background:var(--chip);color:var(--muted)}
+.cchip.ok{background:var(--teal-soft);color:var(--teal)}
+.recipe{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:12px;border-radius:14px;background:var(--bg);min-height:64px}
+.recipe .p{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:12px;background:var(--card);border:1px solid var(--line);font-weight:700}
+.recipe .p .e{font-size:24px}
+.camseq{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;max-width:min(92vw,640px);min-height:44px}
+.camseq span{padding:6px 12px;border-radius:12px;background:#1F2740;font-family:var(--f-display);font-size:20px}
+.camseq span.new{background:#F2652E;animation:pop .5s ease}
+@keyframes pop{0%{transform:scale(.6)}70%{transform:scale(1.1)}}
+.cambtns .done{width:auto;min-width:72px;background:#13867A;border-color:#13867A}
+.result{position:relative;padding:clamp(22px,4vw,40px);border-radius:26px;background:var(--ink);color:var(--bg);overflow:hidden}
+.result .lab{font-size:14px;letter-spacing:.08em;font-weight:700;opacity:.7}
+.result .msg{font-family:var(--f-display);font-size:clamp(36px,7vw,72px);line-height:1.2;margin:10px 0 18px;word-break:keep-all;display:flex;flex-wrap:wrap;gap:.05em .32em}
+.result .msg span{display:inline-block;animation:rise .5s both}
+@keyframes rise{from{opacity:0;transform:translateY(16px)}}
+.result .from{display:flex;flex-wrap:wrap;gap:8px}
+.result .from span{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:12px;background:rgba(127,140,170,.22);font-size:15px}
+.result .from b{font-size:24px;font-weight:400}
+.cmp{display:flex;flex-direction:column;gap:6px;padding:14px;border-radius:14px}
+.cmp.same{background:var(--teal-soft)}
+.cmp.diff{background:var(--sun-soft)}
+.cmp .big{font-family:var(--f-display);font-size:24px}
+mark.miss{background:var(--danger-soft);color:var(--danger);border-radius:6px;padding:0 4px}
+.mload{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 14px;border-radius:14px;border:1px dashed var(--line);background:var(--card);margin-bottom:16px}
+.mload.on{border-color:var(--teal);background:var(--teal-soft)}
+.mload .msg{flex:1;min-width:0;font-size:15px;display:flex;align-items:center;gap:8px}
+.mload .msg.ok{color:var(--teal);font-weight:700}
+.mload .msg.err{color:var(--danger)}
+.studio{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:16px;align-items:start}
+.cam{position:relative;width:min(100%,46vh);margin:0 auto;aspect-ratio:1;max-width:100%;border-radius:20px;overflow:hidden;background:#0B0F1A;color:#fff}
+.cam video,.cam img{width:100%;height:100%;object-fit:cover;display:block}
+.cam video{transform:scaleX(-1)}
+.cam .frame{position:absolute;inset:0;border:4px solid rgba(255,201,60,.85);border-radius:20px;pointer-events:none}
+.cam .idle{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:20px;color:#C9D2E3}
+.cam .idle .btn{background:#13867A;border-color:#13867A;color:#fff}
+.now{display:flex;align-items:center;gap:12px;margin-top:12px;padding:12px 14px;border-radius:16px;background:var(--bg)}
+.now .w{font-family:var(--f-display);font-size:32px;line-height:1.1;flex:1;min-width:0;word-break:keep-all}
+.now .p{font-variant-numeric:tabular-nums;font-weight:700;color:var(--muted);font-size:18px}
+.now .bar2{height:8px;border-radius:99px;background:var(--chip);overflow:hidden;margin-top:6px}
+.now .bar2 i{display:block;height:100%;background:var(--teal);transition:width .2s}
+.now.nohand .w{color:var(--muted);font-size:22px}
+.okrow{display:grid;grid-template-columns:1fr auto;gap:10px;margin-top:12px}
+.okbtn{min-height:84px;border-radius:20px;border:0;background:var(--accent);color:var(--accent-ink);font-family:var(--f-display);font-size:34px}
+.okbtn[disabled]{opacity:.4}
+.okbtn:active{transform:translateY(2px)}
+.sentence{min-height:150px;padding:18px;border-radius:18px;background:var(--ink);color:var(--bg);display:flex;flex-wrap:wrap;gap:10px;align-content:flex-start}
+.sentence .wd{display:inline-flex;align-items:center;gap:4px;font-family:var(--f-display);font-size:clamp(26px,3.6vw,40px);line-height:1.2;padding:2px 4px 2px 12px;border-radius:12px;background:rgba(127,140,170,.2)}
+.sentence .wd.new{animation:pop .5s ease;background:var(--accent);color:var(--accent-ink)}
+.sentence .wd button{width:36px;height:36px;border:0;border-radius:10px;background:transparent;color:inherit;opacity:.6;font-size:16px}
+.sentence .ph{color:var(--bg);opacity:.55;font-size:17px;align-self:center}
+@keyframes pop{0%{transform:scale(.6)}70%{transform:scale(1.1)}}
+.classes{display:flex;flex-wrap:wrap;gap:6px}
+.classes span{padding:4px 12px;border-radius:999px;background:var(--chip);font-weight:700;font-size:15px}
+.classes span.bg{opacity:.55;font-weight:500}
+.result{position:relative;padding:clamp(22px,4vw,40px);border-radius:26px;background:var(--ink);color:var(--bg);overflow:hidden}
+.result .lab{font-size:14px;letter-spacing:.08em;font-weight:700;opacity:.7}
+.result .msg{font-family:var(--f-display);font-size:clamp(36px,7vw,72px);line-height:1.2;margin:10px 0 18px;word-break:keep-all;display:flex;flex-wrap:wrap;gap:.05em .32em}
+.result .msg span{display:inline-block;animation:rise .5s both}
+@keyframes rise{from{opacity:0;transform:translateY(16px)}}
+.result .from{display:flex;flex-wrap:wrap;gap:8px}
+.result .from span{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:12px;background:rgba(127,140,170,.22);font-size:15px}
+.example{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.example code{font-family:var(--f-body);font-weight:700;background:var(--sun);color:#1A2238;padding:2px 10px;border-radius:8px}
+@media (max-width:820px){.studio{grid-template-columns:1fr}}
+</style>
+
+<nav class="rail" aria-label="활동 단계">
+  <div class="rail-in">
+    <div class="brand"><span class="hand" aria-hidden="true">✋</span><span class="txt">손짓 메시지</span></div>
+    <div class="steps" id="steps"></div>
+  </div>
+</nav>
+<main id="app"></main>
+<input type="file" id="camIn" class="hidden-file" accept="image/*" capture="user" tabindex="-1" aria-hidden="true">
+<input type="file" id="modelIn" class="hidden-file" accept=".zip,.json,.bin,application/zip,application/json,application/octet-stream" multiple tabindex="-1" aria-hidden="true">
+
+<script>
+(function(){
+"use strict";
+const TM_URL = "https://teachablemachine.withgoogle.com/train/image";
+const LIBS = [
+  "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js",
+  "https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.5/dist/teachablemachine-image.min.js",
+  "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"
+];
+const STEPS = [
+  {short:"AI 학습", min:10, title:"티처블 머신으로 학습시키기", eyebrow:"STEP 1 · 10분", lead:"손동작마다 메시지 하나를 정하고, 그 메시지를 클래스 이름으로 붙여서 AI를 학습시켜요."},
+  {short:"메시지 만들기", min:5, title:"손동작으로 메시지 만들기", eyebrow:"STEP 2 · 5분", lead:"우리 AI를 불러온 뒤, 카메라에 손동작을 보여 주고 OK를 눌러요. 반복하면 메시지가 이어 붙어 한 문장이 돼요."},
+  {short:"결과", min:0, title:"AI가 완성한 문장", eyebrow:"STEP 3", lead:"AI가 알아본 손동작을 순서대로 이어 붙인 문장이에요."}
+];
+const BG_RE = /^(배경|없음|background|nothing|none|class\s*\d+)$/i;
+
+/* ---------- state ---------- */
+const KEY = "handmsg.v4";
+function fresh(){ return { step:0, done:[], todo:[], timers:STEPS.map(s=>({left:s.min*60, running:false})), flip:true, seq:[], msgs:[] }; }
+let S = fresh();
+try{ const raw = localStorage.getItem(KEY); if(raw){ const o = JSON.parse(raw); S = Object.assign(fresh(), o); S.timers = S.timers.map(t=>({left:t.left, running:false})); } }catch(e){}
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
+
+let model = null, labels = [], modelLoading = false, modelErr = "", confirmReset = false, flashLast = false;
+let cur = null;      // latest live prediction {className, probability}
+let still = null;    // photo-mode prediction {src, top}
+
+/* ---------- helpers ---------- */
+const $ = (s,el=document)=>el.querySelector(s);
+const esc = s => String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const fmt = s => { const a=Math.abs(s); return Math.floor(a/60)+":"+String(a%60).padStart(2,"0"); };
+const isBg = n => BG_RE.test(String(n).trim());
+const sentence = seq => seq.map(s=>s.name).join(" ");
+function toast(msg){ const t=document.createElement("div"); t.className="toast"; t.textContent=msg; document.body.appendChild(t); setTimeout(()=>t.remove(),2200); }
+let actx=null;
+function beep(){ try{ actx = actx || new (window.AudioContext||window.webkitAudioContext)(); [0,0.25,0.5].forEach(d=>{ const o=actx.createOscillator(), g=actx.createGain(); o.frequency.value=880; g.gain.setValueAtTime(0.15,actx.currentTime+d); g.gain.exponentialRampToValueAtTime(0.001,actx.currentTime+d+0.2); o.connect(g).connect(actx.destination); o.start(actx.currentTime+d); o.stop(actx.currentTime+d+0.22); }); }catch(e){} }
+let wake=null;
+async function keepAwake(){ try{ if(navigator.wakeLock && !wake){ wake = await navigator.wakeLock.request("screen"); wake.addEventListener("release",()=>wake=null); } }catch(e){} }
+document.addEventListener("visibilitychange",()=>{ if(document.visibilityState==="visible" && (S.timers.some(t=>t.running)||camStream)) keepAwake(); });
+
+/* ---------- step rail ---------- */
+function renderRail(){
+  $("#steps").innerHTML = STEPS.map((s,i)=>`<button class="stp ${S.done.includes(i)?"done":""}" data-go="${i}" ${i===S.step?'aria-current="step"':""}><span class="n">${S.done.includes(i)&&i!==S.step?"✓":i+1}</span>${esc(s.short)}${s.min?`<span class="m">${s.min}분</span>`:""}</button>`).join("");
+  const c = $("#steps [aria-current]"); if(c) c.scrollIntoView({block:"nearest",inline:"center"});
+}
+
+/* ---------- timer ---------- */
+function timerHTML(i){
+  const t=S.timers[i], total=STEPS[i].min*60, frac=Math.max(0,t.left)/total, C=2*Math.PI*38;
+  const cls = t.left<=0?"over":(t.left<=30?"warn":"");
+  return `<div class="timer ${t.left<=0&&t.running?"over":""}" id="timer">
+    <div class="ring ${cls}"><svg viewBox="0 0 84 84" aria-hidden="true"><circle class="bgc" cx="42" cy="42" r="38"/><circle class="fg" cx="42" cy="42" r="38" stroke-dasharray="${C}" stroke-dashoffset="${C*(1-frac)}"/></svg><div class="t" id="tval">${t.left<=0?"끝!":fmt(t.left)}</div></div>
+    <div class="tbtns">
+      <button class="btn sm ${t.running?"":"teal"}" data-act="ttoggle">${t.running?"일시정지":(t.left<total?"계속":"시작")}</button>
+      <button class="btn sm ghost" data-act="treset">다시 ${STEPS[i].min}분</button>
+    </div></div>`;
+}
+let lastTick = Date.now();
+setInterval(()=>{
+  const now=Date.now(), dt=Math.round((now-lastTick)/1000); if(dt<1) return; lastTick += dt*1000;
+  let changed=false;
+  S.timers.forEach((t,i)=>{ if(!t.running) return; const before=t.left; t.left-=dt; changed=true; if(before>0 && t.left<=0){ beep(); if(i===S.step) toast("⏰ "+STEPS[i].title+" 시간이 끝났어요"); } });
+  if(changed){ save(); updateTimer(); }
+},250);
+function updateTimer(){
+  const el=$("#timer"); if(!el) return;
+  const t=S.timers[S.step], total=STEPS[S.step].min*60, C=2*Math.PI*38, frac=Math.max(0,t.left)/total;
+  $("#tval").textContent = t.left<=0?"끝!":fmt(t.left);
+  $(".fg",el).setAttribute("stroke-dashoffset", C*(1-frac));
+  const ring=$(".ring",el); ring.classList.toggle("warn", t.left>0&&t.left<=30); ring.classList.toggle("over", t.left<=0);
+  el.classList.toggle("over", t.left<=0 && t.running);
+}
+
+/* ---------- views ---------- */
+function head(i){
+  const s=STEPS[i];
+  return `<div class="head"><div class="head-txt"><div class="eyebrow">${s.eyebrow}</div><h2>${esc(s.title)}</h2><p>${esc(s.lead)}</p></div>${s.min?timerHTML(i):""}</div>`;
+}
+
+const TODO = [
+  ["메시지 정하기","손동작마다 전할 메시지를 하나씩 정해요. 3~4개가 알맞아요. 이어 붙이면 문장이 되도록 정하면 좋아요.","ex"],
+  ["티처블 머신 열기","아래 버튼으로 열고 ‘이미지 프로젝트 → 표준 이미지 모델’을 고르세요."],
+  ["클래스 이름을 메시지로 바꾸기","‘Class 1’ 옆 연필을 눌러 이름을 <b>메시지 그대로</b> 적어요. 이 이름이 나중에 문장에 그대로 들어가요. 필요한 만큼 ‘클래스 추가’를 눌러요."],
+  ["손동작마다 사진 모으기","‘웹캠’ → ‘길게 눌러서 녹화하기’. <b>모둠원 모두</b> 돌아가며 손 위치·거리·각도를 바꿔 클래스마다 60장 이상 모아요."],
+  ["‘배경’ 클래스 만들기","클래스 하나를 <b>배경</b>이라고 이름 붙이고, 손 없이 얼굴과 뒷배경만 찍어요. 배경은 문장에 들어가지 않아요."],
+  ["모델 학습시키기","‘모델 학습시키기’를 누르고, 끝날 때까지 <b>다른 탭으로 넘기지 마세요</b>."],
+  ["미리보기로 시험하기","오른쪽 미리보기에서 손동작마다 막대가 잘 올라가는지 확인해요. 헷갈리면 사진을 더 모아 다시 학습해요."],
+  ["모델 내려받기","‘모델 내보내기’ → ‘Tensorflow.js’ 탭 → ‘다운로드’ → ‘내 모델 다운로드’. zip 파일이 저장돼요."]
+];
+function vTrain(){
+  const doneN = S.todo.filter(Boolean).length;
+  return head(0)+`<div class="grid">
+    <div class="col"><div class="card"><div class="row" style="justify-content:space-between;margin-bottom:10px"><h3 style="margin:0">단계별 안내</h3><span class="muted small" style="font-variant-numeric:tabular-nums">${doneN} / ${TODO.length}</span></div>
+      <div class="progress" style="margin-bottom:12px"><i style="width:${doneN/TODO.length*100}%"></i></div>
+      <ol class="todo">${TODO.map(([b,s,ex],i)=>`<li class="${S.todo[i]?"ok":""}" data-act="todo" data-i="${i}" role="checkbox" aria-checked="${!!S.todo[i]}" tabindex="0"><span class="box">✓</span><span class="tx"><b>${i+1}. ${b}</b><span>${s}</span>${ex?`<span class="example">✋→<code>안녕</code> ✌️→<code>우리</code> 👍→<code>오늘도</code> ✊→<code>힘내자!</code></span>`:""}</span></li>`).join("")}</ol>
+    </div></div>
+    <div class="col">
+      <div class="card teal"><h3>티처블 머신</h3><p style="margin:0 0 12px">새 탭에서 열려요. 모델을 내려받았으면 이 화면으로 돌아오세요.</p>
+        <a class="btn xl teal block" href="${TM_URL}" target="_blank" rel="noopener">티처블 머신 열기 ↗</a>
+        <p class="small muted" style="margin:10px 0 0">주소: teachablemachine.withgoogle.com</p></div>
+      <div class="card sun"><h3>더 똑똑한 AI를 만드는 비결</h3>
+        <ul style="margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:6px">
+          <li>서로 <b>모양이 확실히 다른</b> 손동작을 고르세요. 브이와 검지처럼 비슷하면 AI가 헷갈려요.</li>
+          <li>한 사람 손만 찍으면 다른 사람 손은 잘 못 알아봐요. <b>모두의 손</b>을 넣어요.</li>
+          <li>가까이·멀리, 왼쪽·오른쪽, 조금 기울여서도 찍어요.</li>
+          <li>클래스마다 사진 수를 <b>비슷하게</b> 맞춰요.</li>
+          <li><b>배경</b> 클래스를 넣으면 손이 없을 때 엉뚱한 메시지가 나오지 않아요.</li>
+          <li>메시지를 만들 때와 <b>같은 장소·밝기</b>에서 찍으면 정확도가 올라가요.</li>
+        </ul></div>
+    </div></div>
+    <div class="next"><button class="btn xl pri" data-act="next">메시지 만들러 가기 →</button></div>`;
+}
+
+function loaderHTML(){
+  let msg;
+  if(modelLoading) msg = `<span class="msg"><span class="spin"></span>모델을 불러오는 중이에요…</span>`;
+  else if(model) msg = `<span class="msg ok">✅ 우리 AI 준비 완료</span><span class="classes">${labels.map(l=>`<span class="${isBg(l)?"bg":""}">${esc(l)}</span>`).join("")}</span>`;
+  else if(modelErr) msg = `<span class="msg err">⚠️ ${esc(modelErr)}</span>`;
+  else msg = `<span class="msg">📦 티처블 머신에서 내려받은 <b>&nbsp;zip 파일</b>을 불러오세요.</span>`;
+  return `<div class="mload ${model?"on":""}" id="drop">${msg}<button class="btn sm ${model?"":"pri"}" data-act="pickmodel">${model?"다른 모델":"모델 파일 고르기"}</button></div>`;
+}
+function nowHTML(){
+  const p = still ? still.top : cur;
+  if(!model) return `<div class="now nohand"><span class="w">모델을 불러오면 시작할 수 있어요</span></div>`;
+  if(!p) return `<div class="now nohand"><span class="w">${camStream?"손동작을 보여 주세요":"카메라를 켜 주세요"}</span></div>`;
+  if(isBg(p.className)) return `<div class="now nohand"><span class="w">✋ 손이 안 보여요</span><span class="p">${Math.round(p.probability*100)}%</span></div>`;
+  return `<div class="now"><div style="flex:1;min-width:0"><div class="small muted">AI가 알아본 메시지</div><div class="w">${esc(p.className)}</div><div class="bar2"><i style="width:${Math.round(p.probability*100)}%"></i></div></div><span class="p">${Math.round(p.probability*100)}%</span></div>`;
+}
+function okDisabled(){ const p = still ? still.top : cur; return !model || !p || isBg(p.className); }
+function sentenceHTML(){
+  if(!S.seq.length) return `<div class="sentence"><span class="ph">OK를 누를 때마다 메시지가 여기에 이어 붙어요</span></div>`;
+  return `<div class="sentence">${S.seq.map((s,i)=>`<span class="wd ${flashLast&&i===S.seq.length-1?"new":""}">${esc(s.name)}<button data-act="delseq" data-i="${i}" aria-label="${esc(s.name)} 빼기">✕</button></span>`).join("")}</div>`;
+}
+function camBoxHTML(){
+  if(still) return `<div class="cam"><img src="${still.src}" alt="찍은 손동작"><div class="frame"></div></div>`;
+  if(camStream) return `<div class="cam"><video id="camV" playsinline muted autoplay></video><div class="frame"></div></div>`;
+  return `<div class="cam"><div class="idle"><span style="font-size:44px" aria-hidden="true">📷</span>${model?(liveCam===false?`<span>사진을 찍어서 손동작을 보여 줘요</span><button class="btn xl" data-act="photo">사진 찍기</button>`:`<span>카메라를 켜고 손동작을 보여 주세요</span><button class="btn xl" data-act="camon">카메라 켜기</button>`):`<span>먼저 위에서 모델 파일을 불러오세요</span>`}</div></div>`;
+}
+function vMake(){
+  return head(1)+loaderHTML()+`<div class="studio">
+    <div class="card">
+      <div id="camBox">${camBoxHTML()}</div>
+      <div id="nowBox">${nowHTML()}</div>
+      <div class="okrow"><button class="okbtn" id="okBtn" data-act="ok" ${okDisabled()?"disabled":""}>OK</button>${still?`<button class="btn" data-act="photo" style="min-height:84px">다시 찍기</button>`:`<label class="toggle small" for="flipM" style="padding:0 6px"><input type="checkbox" id="flipM" ${S.flip?"checked":""}> 좌우<br>반전</label>`}</div>
+    </div>
+    <div class="col">
+      <div class="card"><div class="row" style="justify-content:space-between;margin-bottom:10px"><h3 style="margin:0">만들고 있는 문장</h3><span class="small muted" id="seqCount">${S.seq.length}개</span></div>
+        <div id="sentBox">${sentenceHTML()}</div>
+        <div class="row" style="margin-top:12px"><button class="btn" data-act="undo" ${S.seq.length?"":"disabled"}>↶ 마지막 빼기</button><button class="btn ghost" data-act="clearseq" ${S.seq.length?"":"disabled"}>모두 지우기</button></div>
+      </div>
+      <div class="card sun small"><b>이렇게 해요</b><ol style="margin:6px 0 0;padding-left:1.2em;display:flex;flex-direction:column;gap:4px">
+        <li>네모 칸 안에 손동작을 크게 보여 줘요.</li>
+        <li>AI가 알아본 메시지가 맞으면 <b>OK</b>를 눌러요.</li>
+        <li>다음 손동작을 보여 주고 다시 OK. 문장이 될 때까지 반복해요.</li>
+        <li>다 만들었으면 ‘문장 완성하기’를 눌러요.</li></ol></div>
+      <button class="btn xl pri block" data-act="finish" ${S.seq.length?"":"disabled"}>✨ 문장 완성하기 →</button>
+    </div>
+  </div>`;
+}
+function refreshMake(){
+  if(S.step!==1) return;
+  const nb=$("#nowBox"); if(nb) nb.innerHTML=nowHTML();
+  const ok=$("#okBtn"); if(ok) ok.disabled=okDisabled();
+}
+
+function vResult(){
+  const m = S.msgs[S.msgs.length-1];
+  const main = !m
+    ? `<div class="cover"><span style="font-size:40px" aria-hidden="true">✉️</span><span>아직 완성한 문장이 없어요. 2단계에서 손동작을 보여 주고 OK를 누른 뒤 ‘문장 완성하기’를 누르세요.</span><button class="btn pri" data-act="go" data-i="1">메시지 만들러 가기</button></div>`
+    : `<div class="result"><div class="lab">우리 AI가 완성한 문장</div>
+        <div class="msg">${m.seq.map((s,i)=>`<span style="animation-delay:${i*0.35}s">${esc(s.name)}</span>`).join("")}</div>
+        <div class="from">${m.seq.map(s=>`<span>${esc(s.name)} · AI 확신 ${Math.round(s.conf*100)}%</span>`).join("")}</div></div>`;
+  return head(2)+`<div class="grid" style="grid-template-columns:minmax(0,2fr) minmax(0,1fr)">
+    <div class="col">${main}<div class="row"><button class="btn pri" data-act="again">📷 새 문장 만들기</button></div></div>
+    <div class="col">
+      <div class="card sun"><h3>함께 이야기해요</h3><ol class="qs">
+        <li>AI가 다른 메시지로 알아본 손동작이 있었나요? 왜 그랬을까요?</li>
+        <li>학습 데이터를 어떻게 바꾸면 더 정확해질까요? (사람, 각도, 밝기, 사진 수)</li>
+        <li>손동작을 알아보는 AI는 생활 속 어디에 쓰일 수 있을까요? (예: 수어 통역)</li>
+      </ol></div>
+      ${S.msgs.length>1?`<div class="card"><h3>지금까지 만든 문장</h3><div class="log">${S.msgs.slice().reverse().map(x=>`<div class="lrow"><b>${esc(x.text)}</b></div>`).join("")}</div></div>`:""}
+      <div class="card"><h3>다음 모둠을 위해 비우기</h3>
+        ${confirmReset?`<div class="confirm"><span>만든 문장과 체크리스트가 모두 지워져요.</span><button class="btn sm" style="background:var(--danger);color:#fff;border-color:var(--danger)" data-act="resetyes">모두 지우기</button><button class="btn sm" data-act="resetno">취소</button></div>`:`<button class="btn" data-act="reset">처음부터 새로 하기</button>`}</div>
+    </div></div>`;
+}
+
+const VIEWS=[vTrain,vMake,vResult];
+function render(){
+  renderRail();
+  const y = window.scrollY;
+  $("#app").innerHTML = VIEWS[S.step]();
+  window.scrollTo(0,y);
+  wireDrop();
+  const v=$("#camV"); if(v && camStream && v.srcObject!==camStream){ v.srcObject=camStream; v.play().catch(()=>{}); }
+  flashLast=false;
+}
+function go(i){ if(i!==S.step){ if(!S.done.includes(S.step)) S.done.push(S.step); if(i!==1) stopCamera(); S.step=i; save(); render(); window.scrollTo(0,0); } }
+
+/* ---------- model loading ---------- */
+let libsP=null;
+function loadScript(src){ return new Promise((res,rej)=>{ const s=document.createElement("script"); s.src=src; s.onload=res; s.onerror=()=>rej(new Error("load "+src)); document.head.appendChild(s); }); }
+function loadLibs(){ if(!libsP) libsP = LIBS.reduce((p,src)=>p.then(()=>loadScript(src)), Promise.resolve()).catch(e=>{ libsP=null; throw e; }); return libsP; }
+setTimeout(()=>{ loadLibs().catch(()=>{}); }, 1500);
+
+async function handleModelFiles(list){
+  const files=[...list]; if(!files.length) return;
+  modelLoading=true; modelErr=""; render();
+  try{
+    await loadLibs();
+    let mj, wb, md;
+    const zip = files.find(f=>/\.zip$/i.test(f.name) || f.type==="application/zip");
+    if(zip){
+      const z = await JSZip.loadAsync(zip);
+      const get = (re)=>{ const k=Object.keys(z.files).find(n=>re.test(n) && !/__MACOSX/.test(n)); return k?z.files[k]:null; };
+      const a=get(/model\.json$/i), b=get(/\.bin$/i), c=get(/metadata\.json$/i);
+      if(!a||!b||!c) throw new Error("zip 안에 model.json, weights.bin, metadata.json이 모두 있어야 해요. ‘Tensorflow.js’ 탭에서 받은 파일인지 확인하세요.");
+      mj = new File([await a.async("blob")],"model.json",{type:"application/json"});
+      wb = new File([await b.async("blob")],b.name.split("/").pop(),{type:"application/octet-stream"});
+      md = new File([await c.async("blob")],"metadata.json",{type:"application/json"});
+    } else {
+      mj = files.find(f=>/^model.*\.json$/i.test(f.name)); md = files.find(f=>/metadata.*\.json$/i.test(f.name)); wb = files.find(f=>/\.bin$/i.test(f.name));
+      if(!mj||!md||!wb) throw new Error("zip 파일 하나, 또는 model.json · weights.bin · metadata.json 세 파일을 함께 골라 주세요.");
+    }
+    model = await tmImage.loadFromFiles(mj, wb, md);
+    labels = model.getClassLabels();
+    modelLoading=false; render();
+    if(liveCam!==false) startCamera();
+    return;
+  }catch(e){
+    console.error(e); model=null;
+    modelErr = /load https/.test(e.message) ? "AI 라이브러리를 내려받지 못했어요. 인터넷 연결을 확인하세요." : (e.message.length<140&&/[가-힣]/.test(e.message)?e.message:"모델 파일을 읽지 못했어요. ‘Tensorflow.js’ 탭에서 받은 zip인지 확인하세요.");
+  }
+  modelLoading=false; render();
+}
+function wireDrop(){
+  const d=$("#drop"); if(!d) return;
+  d.addEventListener("dragover",e=>{e.preventDefault();d.classList.add("on");});
+  d.addEventListener("drop",e=>{e.preventDefault();handleModelFiles(e.dataTransfer.files);});
+}
+
+/* ---------- camera ---------- */
+function crop(src,w,h){
+  const c=document.createElement("canvas"), n=224; c.width=c.height=n;
+  const s=Math.min(w,h);
+  c.getContext("2d").drawImage(src,(w-s)/2,(h-s)/2,s,s,0,0,n,n);
+  return c;
+}
+async function topOf(c){ return (await model.predict(c, S.flip)).slice().sort((a,b)=>b.probability-a.probability)[0]; }
+
+// live camera inside the page where the viewer allows it; otherwise the photo picker
+let liveCam = (function(){
+  if(!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)) return false;
+  const pol = document.permissionsPolicy || document.featurePolicy;
+  if(pol && pol.allowsFeature) return pol.allowsFeature("camera");
+  return null; // unknown (Safari): try once
+})();
+let camStream=null, camLoop=null;
+async function startCamera(){
+  if(camStream) return;
+  try{
+    camStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:{ideal:640},height:{ideal:640}},audio:false});
+    liveCam = true; still=null; keepAwake();
+  }catch(err){ console.warn("camera",err); liveCam=false; render(); return; }
+  render();
+  const tick = async()=>{
+    if(!camStream) return;
+    const v=$("#camV");
+    if(v && v.videoWidth && model){ try{ cur = await topOf(crop(v,v.videoWidth,v.videoHeight)); refreshMake(); }catch(e){} }
+    camLoop=setTimeout(tick,200);
+  };
+  tick();
+}
+function stopCamera(){
+  clearTimeout(camLoop); camLoop=null; cur=null;
+  if(camStream){ camStream.getTracks().forEach(t=>t.stop()); camStream=null; }
+}
+function readImage(file){
+  return new Promise((res,rej)=>{
+    const url=URL.createObjectURL(file), img=new Image();
+    img.onload=()=>{ const c=crop(img,img.naturalWidth,img.naturalHeight); URL.revokeObjectURL(url); res(c); };
+    img.onerror=()=>{URL.revokeObjectURL(url);rej(new Error("img"));};
+    img.src=url;
+  });
+}
+$("#camIn").addEventListener("change", async e=>{
+  const f=e.target.files[0]; e.target.value=""; if(!f||!model) return;
+  try{ const c=await readImage(f); still={src:c.toDataURL("image/jpeg",0.8), top:await topOf(c)}; render(); }
+  catch(err){ console.error(err); toast("사진을 읽지 못했어요. 다시 찍어 주세요."); }
+});
+$("#modelIn").addEventListener("change", e=>{ const fl=[...e.target.files]; e.target.value=""; handleModelFiles(fl); });
+
+function commit(){
+  let p;
+  if(still){ p=still.top; still=null; }
+  else {
+    const v=$("#camV"); p=cur;
+    if(!p || isBg(p.className)) return;
+    if(v && v.animate) v.animate([{opacity:.3},{opacity:1}],{duration:250});
+  }
+  if(!p || isBg(p.className)) return;
+  S.seq.push({name:p.className, conf:p.probability}); save();
+  flashLast=true;
+  if(camStream){
+    // update only the sentence side so the live video keeps running
+    $("#sentBox").innerHTML=sentenceHTML(); flashLast=false;
+    ["undo","clearseq","finish"].forEach(k=>{ const el=$(`[data-act=${k}]`); if(el) el.disabled=false; });
+    const cnt=$("#seqCount"); if(cnt) cnt.textContent=S.seq.length+"개";
+  }
+  else render();
+}
+function finish(){
+  if(!S.seq.length) return;
+  S.msgs.push({text:sentence(S.seq), seq:S.seq.slice()});
+  stopCamera(); if(!S.done.includes(1)) S.done.push(1);
+  S.step=2; save(); render(); window.scrollTo(0,0);
+}
+
+/* ---------- events ---------- */
+document.addEventListener("click", e=>{
+  const b = e.target.closest("[data-act],[data-go]"); if(!b) return;
+  if(b.dataset.go!=null){ go(+b.dataset.go); return; }
+  const a=b.dataset.act, i=+b.dataset.i;
+  switch(a){
+    case "next": go(S.step+1); break;
+    case "go": go(i); break;
+    case "ttoggle": { const t=S.timers[S.step]; t.running=!t.running; if(t.running){ lastTick=Date.now(); keepAwake(); } save(); render(); break; }
+    case "treset": S.timers[S.step]={left:STEPS[S.step].min*60, running:false}; save(); render(); break;
+    case "todo": S.todo[i]=!S.todo[i]; save(); render(); break;
+    case "pickmodel": $("#modelIn").click(); break;
+    case "camon": startCamera(); break;
+    case "photo": $("#camIn").click(); break;
+    case "ok": commit(); break;
+    case "undo": S.seq.pop(); save(); render(); break;
+    case "delseq": S.seq.splice(i,1); save(); render(); break;
+    case "clearseq": S.seq=[]; save(); render(); break;
+    case "finish": finish(); break;
+    case "again": S.seq=[]; save(); go(1); if(model && liveCam!==false) startCamera(); break;
+    case "reset": confirmReset=true; render(); break;
+    case "resetno": confirmReset=false; render(); break;
+    case "resetyes": S=fresh(); confirmReset=false; still=null; save(); render(); window.scrollTo(0,0); break;
+  }
+});
+document.addEventListener("keydown", e=>{
+  if((e.key===" "||e.key==="Enter") && e.target.matches(".todo li")){ e.preventDefault(); e.target.click(); }
+});
+document.addEventListener("change", e=>{ if(e.target.id==="flipM"){ S.flip=e.target.checked; save(); } });
+
+render();
+})();
+</script>
+
+</body></html>
